@@ -44,7 +44,7 @@ The home route `/` redirects to the gallery.
 | Requirement | Where |
 | --- | --- |
 | Two distinct layouts | `Events/VisualOne.vue` (gallery), `Events/VisualTwo.vue` (map) |
-| 2+ local images per event | `public/images/events/*.svg` + `Event::images()` |
+| 2+ local images per event | generated posters via `App\Support\EventPoster` + `Event::images()` |
 | Human-readable address from lat/lng | `App\Support\CityDirectory` (offline, nearest-anchor) |
 | Timezone-aware date/time | event-local in `Event::toCardArray()`, viewer-local in `useEventTime.ts` |
 | Filter by date **and** location | `Event::scopeFilter()` + `EventFilters.vue` |

@@ -155,9 +155,11 @@ class Event extends Model
     }
 
     /**
-     * 2–3 local placeholder image URLs, chosen deterministically from the event's
-     * id + category. Served from /images/events/*.svg — no external URLs, no DB
-     * storage, stable across requests, and scales to any row count.
+     * 2–3 generated poster URLs, unique per event and served locally from the
+     * event-poster route. The art is derived deterministically from the event id
+     * (+ variant), so every event gets its own posters, they're stable across
+     * requests, there's no stored-file or DB overhead, and it scales to any row
+     * count. No external/hotlinked URLs.
      *
      * @return list<string>
      */
@@ -167,14 +169,11 @@ class Event extends Model
             ? $this->type
             : 'concert';
 
-        // Rotate the variant order by a stable hash so the "cover" image varies
-        // between events of the same category.
-        $offset = hexdec(substr(md5((string) $this->id), 0, 4)) % self::IMAGE_VARIANTS;
+        $seed = substr(md5((string) $this->id), 0, 12);
 
         $urls = [];
-        for ($i = 0; $i < self::IMAGE_VARIANTS; $i++) {
-            $variant = (($offset + $i) % self::IMAGE_VARIANTS) + 1;
-            $urls[] = asset("images/events/{$category}-{$variant}.svg");
+        for ($v = 1; $v <= self::IMAGE_VARIANTS; $v++) {
+            $urls[] = route('events.poster', ['seed' => $seed, 'c' => $category, 'v' => $v]);
         }
 
         return $urls;

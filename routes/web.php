@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventImageController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/events-visual-1')->name('home');
@@ -12,6 +13,9 @@ Route::get('events/data', [EventController::class, 'data'])->name('events.data')
 // The two browse experiences.
 Route::get('events-visual-1', [EventController::class, 'visualOne'])->name('events.visual1');
 Route::get('events-visual-2', [EventController::class, 'visualTwo'])->name('events.visual2');
+
+// Generated event poster artwork (local, deterministic, immutably cached).
+Route::get('img/event-poster', EventImageController::class)->name('events.poster');
 
 // JSON data feeds (loaded client-side so the large dataset stays off the Inertia payload).
 Route::get('api/events/feed', [EventController::class, 'feed'])->name('events.feed');

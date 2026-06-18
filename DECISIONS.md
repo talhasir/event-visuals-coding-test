@@ -79,11 +79,13 @@ viewer. I show **both**:
 
 ## Images — local, end-to-end, no DB bloat
 
-Real per-event uploads make no sense at 1.25M rows. Instead I generated a small pool of **local gradient
-SVG placeholders** per category (`public/images/events/*.svg`) and an `Event::images()` accessor that
-deterministically picks 2–3 by hashing the event id (so the "cover" varies between events of the same
-category). Files → model → API → carousel, fully local (no hotlinking), and it scales to any row count.
-The accessor is the single swap-point if real stored images are added later.
+Real per-event uploads make no sense at 1.25M rows. Instead each event gets **generated poster art** —
+a mesh-gradient SVG (category palette + soft light blobs + a geometric motif + film grain) produced
+deterministically from the event id by `App\Support\EventPoster` and served from a local route
+(`/img/event-poster`, immutably cached, no DB hit). So every event has its own unique posters, the
+three-per-event differ, same-category events stay visually cohesive, there are no stored files to manage,
+and it scales to any row count — fully local, no hotlinking. `Event::images()` is the single swap-point
+if real stored images are added later.
 
 ## Attendees & emails
 
