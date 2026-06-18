@@ -26,21 +26,25 @@ return new class extends Migration
             // Resolved "City, Country" — stamped at seed time / on model create.
             $table->string('city')->nullable()->after('longitude');
 
-            $table->index('created_time');                 // default sort + date-only range
-            $table->index(['type', 'created_time']);       // category filter + sort
-            $table->index(['status', 'created_time']);     // status filter + sort
-            $table->index(['city', 'created_time']);       // location filter + sort
-            $table->index(['latitude', 'longitude']);      // map viewport bounding box
+            // (created_time, id) matches the keyset feed's ORDER BY created_time
+            // DESC, id DESC. Without the `id` tie-breaker in the index, the cursor
+            // predicate `created_time < X OR (created_time = X AND id < Y)` falls
+            // back to a full scan + full sort on every page after the first.
+            $table->index(['created_time', 'id']);         // default sort + keyset pagination + date range
+            $table->index(['type', 'created_time', 'id']); // category filter + keyset sort
+            $table->index(['status', 'created_time', 'id']); // status filter + keyset sort
+            $table->index(['city', 'created_time', 'id']);   // location filter + keyset sort
+            $table->index(['latitude', 'longitude']);        // map viewport bounding box
         });
     }
 
     public function down(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->dropIndex(['created_time']);
-            $table->dropIndex(['type', 'created_time']);
-            $table->dropIndex(['status', 'created_time']);
-            $table->dropIndex(['city', 'created_time']);
+            $table->dropIndex(['created_time', 'id']);
+            $table->dropIndex(['type', 'created_time', 'id']);
+            $table->dropIndex(['status', 'created_time', 'id']);
+            $table->dropIndex(['city', 'created_time', 'id']);
             $table->dropIndex(['latitude', 'longitude']);
             $table->dropColumn('city');
         });

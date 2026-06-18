@@ -26,11 +26,14 @@ advertising the cost. Fixes:
 1. **Column projection, not payload hydration.** `Event::scopeForListing()` selects only the real columns
    and `json_extract`s the four fields actually rendered (`name`, `description`, `venue.name`,
    `pricing.*`). This drops per-row response size ~95% — the fat `notes` padding never leaves the DB.
-2. **Composite indexes that pair each filter with the sort.** A single-column index isn't enough: a
-   filter + `ORDER BY created_time` made SQLite sort the *entire* matching partition in a temp B-tree
-   (e.g. `type=concert` ⇒ 156k rows sorted ⇒ ~5s). The migration adds `(type, created_time)`,
-   `(status, created_time)` and `(city, created_time)` so matching rows are read back already ordered —
-   no sort. Plus `created_time` (default/date-only) and `(latitude, longitude)` (map bbox).
+2. **Composite indexes that pair each filter with the sort — including the keyset tie-breaker.** A
+   single-column index isn't enough: a filter + `ORDER BY created_time` made SQLite sort the *entire*
+   matching partition in a temp B-tree (e.g. `type=concert` ⇒ 156k rows sorted ⇒ ~5s). And because the
+   feed sorts by `created_time DESC, id DESC`, the index must include `id` too — otherwise the cursor
+   predicate `created_time < X OR (created_time = X AND id < Y)` falls back to a full scan + full sort on
+   every page after the first (a real bug this caused: page 2 took ~90s at 1.25M). The migration adds
+   `(created_time, id)`, `(type, created_time, id)`, `(status, created_time, id)` and
+   `(city, created_time, id)`, plus `(latitude, longitude)` for the map.
 3. **A denormalized, indexed `city` column.** "Filter by location" as a lat/lng bounding box scans a wide
    latitude band (many cities share a latitude). Instead, each row is stamped with its resolved
    "City, Country" at seed time (and on model create), so the filter is an exact-match index range scan.
