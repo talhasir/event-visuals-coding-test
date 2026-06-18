@@ -1,0 +1,21 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
+
+parameters:
+    paths:
+        - app/
+        - bootstrap/app.php
+        - config/
+        - database/
+        - routes/
+
+    level: 7
+
+    # Provided data-generation files that shipped with pre-existing level-7
+    # violations (defensive ?-> on $this->command, env() in the seeder,
+    # json_encode union types). Left unmodified to avoid changing the supplied
+    # seeding harness; all newly authored code passes level 7. See DECISIONS.md.
+    excludePaths:
+        - database/seeders/EventSeeder.php
+        - database/factories/EventFactory.php
