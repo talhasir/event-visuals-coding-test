@@ -80,6 +80,22 @@ it('filters the feed by city via a bounding box', function () {
         ->assertJsonPath('data.0.location.label', 'New York, United States');
 });
 
+it('searches event names through the full-text index', function () {
+    makeEvent(['payload' => ['name' => 'Quantum Jazz Festival'], 'created_time' => 1_700_000_000]);
+    makeEvent(['payload' => ['name' => 'Rock Climbing Meetup'], 'created_time' => 1_700_000_000]);
+
+    // Token + prefix match finds the right event...
+    $this->getJson(route('events.feed', ['q' => 'jazz']))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name', 'Quantum Jazz Festival');
+
+    // ...and a no-match term returns empty (and, at scale, instantly).
+    $this->getJson(route('events.feed', ['q' => 'zzzxxx']))
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
 it('returns only events inside the requested map bounds', function () {
     makeEvent(['latitude' => 40.7128, 'longitude' => -74.0060, 'created_time' => 1_700_000_000]); // New York
     makeEvent(['latitude' => 35.6762, 'longitude' => 139.6503, 'created_time' => 1_700_000_000]); // Tokyo

@@ -40,9 +40,10 @@ advertising the cost. Fixes:
    index, fetches `LIMIT 501` (one extra row to flag truncation in a single query, no separate COUNT),
    skips the ORDER BY (markers are spatial, not chronological), and returns a `truncated` flag so the UI
    says "zoom in" rather than rendering a million pins.
-6. **Honest search.** Free-text name search uses `json_extract ... LIKE`, which can't use an index. Fine
-   for this exercise; the production path is an FTS5 virtual table or a generated, indexed `name` column.
-   Called out here rather than hidden.
+6. **Full-text search (FTS5).** Name search via `json_extract(...) LIKE '%x%'` can't use an index — a
+   rare/no-match term scanned all 1.25M rows and parsed every payload (30s+, enough to kill the dev
+   server). It's now backed by an **FTS5 virtual table** (`events_search`) kept in sync by triggers and
+   backfilled once in a migration: a rare/no-match term went from ~32,000 ms to ~12 ms.
 
 **Measured at 1.25M rows** (server query+serialize time):
 
@@ -52,6 +53,7 @@ advertising the cost. Fixes:
 | Filter by category | ~5,000 ms | **8 ms** |
 | Filter by location (city) | ~1,400 ms | **8 ms** |
 | Category + date + location combined | ~5,000 ms | **23 ms** |
+| Name search, rare/no-match term | ~32,000 ms | **~12 ms** |
 | Map viewport (capped 500) | — | **~100 ms** |
 
 ## Addresses — offline reverse-geocoding
@@ -118,7 +120,6 @@ analysis (noted in `phpstan.neon`) rather than rewritten, to avoid touching the 
 
 ## Trade-offs / what I'd do next
 
-- FTS5 (or a generated indexed column) for name search at scale.
 - A small caching layer for the city/options payload (it's static).
 - Real image storage + an upload flow if events ever get bespoke artwork.
 - The legacy `/events` table view is kept (de-bugged) for continuity; the two visual pages are the focus.

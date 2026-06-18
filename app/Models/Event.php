@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Event extends Model
@@ -112,11 +113,16 @@ class Event extends Model
             $query->where('city', $filters['city']);
         }
 
-        // Free-text search on the event name. LIKE on a json_extract can't use an
-        // index — acceptable for this exercise; FTS5 is the production path (see DECISIONS.md).
-        if (! empty($filters['q'])) {
-            $term = '%'.str_replace(['%', '_'], ['\%', '\_'], $filters['q']).'%';
-            $query->whereRaw("json_extract(payload, '$.name') LIKE ? escape '\\'", [$term]);
+        // Free-text search on the event name via the FTS5 index (events_search) —
+        // an indexed token lookup that stays fast even for rare/no-match terms,
+        // unlike a json_extract LIKE which scans the whole table.
+        if (! empty($filters['q']) && ($match = self::ftsMatch($filters['q'])) !== null) {
+            $ids = DB::table('events_search')
+                ->whereRaw('events_search MATCH ?', [$match])
+                ->limit(2000)
+                ->pluck('event_id');
+
+            $query->whereIn('id', $ids);
         }
 
         return $query;
@@ -132,6 +138,20 @@ class Event extends Model
         return $query
             ->whereBetween('latitude', [(float) $bounds['south'], (float) $bounds['north']])
             ->whereBetween('longitude', [(float) $bounds['west'], (float) $bounds['east']]);
+    }
+
+    /**
+     * Turn raw user input into a safe FTS5 MATCH expression: alphanumeric tokens
+     * with a prefix wildcard, AND-ed together (so "tech sum" matches
+     * "Tech Summit"). Returns null when there's nothing searchable.
+     */
+    private static function ftsMatch(string $input): ?string
+    {
+        preg_match_all('/[\p{L}\p{N}]+/u', mb_strtolower($input), $matches);
+
+        $terms = array_map(static fn (string $t): string => $t.'*', $matches[0]);
+
+        return $terms === [] ? null : implode(' ', $terms);
     }
 
     /**
